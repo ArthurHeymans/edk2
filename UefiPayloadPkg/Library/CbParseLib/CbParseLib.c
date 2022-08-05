@@ -16,6 +16,7 @@
 #include <Library/BlParseLib.h>
 #include <IndustryStandard/Acpi.h>
 #include <Coreboot.h>
+#include <libfdt.h>
 
 /**
   Convert a packed value from cbuint64 to a UINT64 value.
@@ -364,6 +365,8 @@ ParseCbMemTable (
   return Status;
 }
 
+
+
 /**
   Acquire the memory information from the coreboot table in memory.
 
@@ -382,9 +385,15 @@ ParseMemoryInfo (
   )
 {
   CB_MEMORY               *Rec;
-  struct cb_memory_range  *Range;
+  //  struct cb_memory_range  *Range;
   UINTN                   Index;
   MEMORY_MAP_ENTRY        MemoryMap;
+  CONST INT32  *Prop;
+  INT32        AddressCells;
+  INT32        SizeCells;
+  INT32        Length;
+  INT32        MemoryNode;
+
 
   //
   // Get the coreboot memory table
@@ -394,23 +403,117 @@ ParseMemoryInfo (
     return RETURN_NOT_FOUND;
   }
 
-  for (Index = 0; Index < MEM_RANGE_COUNT (Rec); Index++) {
-    Range          = MEM_RANGE_PTR (Rec, Index);
-    MemoryMap.Base = cb_unpack64 (Range->start);
-    MemoryMap.Size = cb_unpack64 (Range->size);
-    MemoryMap.Type = (UINT8)Range->type;
-    MemoryMap.Flag = 0;
-    DEBUG ((
-      DEBUG_INFO,
-      "%d. %016lx - %016lx [%02x]\n",
-      Index,
-      MemoryMap.Base,
-      MemoryMap.Base + MemoryMap.Size - 1,
-      MemoryMap.Type
-      ));
+  void *Fdt = (void *)(UINTN)PcdGet64(PcdFdtParameter);
 
-    MemInfoCallback (&MemoryMap, Params);
+    if (fdt_check_header (Fdt) != 0) {
+    return FALSE;
   }
+
+  DEBUG ((DEBUG_INFO, "Fdt Arg = 0x%x. fdt_check_header() = %d\n", Fdt, fdt_check_header((void *)Fdt)));
+  DEBUG ((DEBUG_INFO, "fdt_num_mem_rsv() = %d\n",   fdt_num_mem_rsv((void *)Fdt)));
+
+  for (Index = 0; Index < fdt_num_mem_rsv(Fdt); Index++) {
+ 	  UINT64 address, size;
+	  fdt_get_mem_rsv(Fdt, Index, &address, &size);
+	  DEBUG ((
+		  DEBUG_INFO,
+		  "%d. %016lx - %016lx\n",
+		  Index,
+		  address,
+		  address + size
+		  ));
+	  MemoryMap.Base = address;
+	  MemoryMap.Size = size;
+	  MemoryMap.Type = 0x02;
+	  MemoryMap.Flag = 0;
+	  MemInfoCallback (&MemoryMap, Params);
+  }
+
+  //
+  // Look for a node called "memory" at the lowest level of the tree
+  //
+  MemoryNode = fdt_path_offset (Fdt, "/memory");
+  if (MemoryNode <= 0) {
+    return FALSE;
+  }
+
+  //
+  // Retrieve the #address-cells and #size-cells properties
+  // from the root node, or use the default if not provided.
+  //
+  AddressCells = 1;
+  SizeCells    = 1;
+
+  Prop = fdt_getprop (Fdt, 0, "#address-cells", &Length);
+  if (Length == 4) {
+    AddressCells = fdt32_to_cpu (*Prop);
+  }
+
+  Prop = fdt_getprop (Fdt, 0, "#size-cells", &Length);
+  if (Length == 4) {
+    SizeCells = fdt32_to_cpu (*Prop);
+  }
+
+  //
+  // Now find the 'reg' property of the /memory node, and read the first
+  // range listed.
+  //
+  Prop = fdt_getprop (Fdt, MemoryNode, "reg", &Length);
+
+  if (Length < (AddressCells + SizeCells) * sizeof (INT32)) {
+    return FALSE;
+  }
+
+  int ranges = Length / ((AddressCells + SizeCells) * sizeof(INT32));
+
+  for (int range = 0; range < ranges; range++) {
+
+	  UINT64 address, size;
+	  address = fdt32_to_cpu (Prop[0]);
+	  if (AddressCells > 1) {
+		  address = (address << 32) | fdt32_to_cpu (Prop[1]);
+	  }
+
+	  Prop += AddressCells;
+
+ 	  size = fdt32_to_cpu (Prop[0]);
+	  if (SizeCells > 1) {
+		  size = (size << 32) | fdt32_to_cpu (Prop[1]);
+	  }
+
+	  DEBUG ((
+		  DEBUG_INFO,
+		  "%d. %016lx - %016lx\n",
+		  Index++,
+		  address + size,
+		  size
+		  ));
+	  Prop += SizeCells;
+
+	  MemoryMap.Base = address;
+	  MemoryMap.Size = size;
+	  MemoryMap.Type = 0x01;
+	  MemoryMap.Flag = 0;
+	  MemInfoCallback (&MemoryMap, Params);
+  }
+
+  /* for (Index = 0; Index < MEM_RANGE_COUNT (Rec); Index++) { */
+  /*   Range          = MEM_RANGE_PTR (Rec, Index); */
+  /*   MemoryMap.Base = cb_unpack64 (Range->start); */
+  /*   MemoryMap.Size = cb_unpack64 (Range->size); */
+  /*   MemoryMap.Type = (UINT8)Range->type; */
+  /*   MemoryMap.Flag = 0; */
+  /*   DEBUG (( */
+  /*     DEBUG_INFO, */
+  /*     "%d. %016lx - %016lx [%02x]\n", */
+  /*     Index, */
+  /*     MemoryMap.Base, */
+  /*     MemoryMap.Base + MemoryMap.Size - 1, */
+  /*     MemoryMap.Type */
+  /*     )); */
+
+  /*   MemInfoCallback (&MemoryMap, Params); */
+  /* } */
 
   return RETURN_SUCCESS;
 }

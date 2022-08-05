@@ -27,6 +27,7 @@
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   UefiPayloadPkg/UefiPayloadPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -34,6 +35,8 @@
   IoLib
   DebugLib
   PcdLib
+  FdtLib
 
 [Pcd]
   gUefiPayloadPkgTokenSpaceGuid.PcdBootloaderParameter
+  gUefiPayloadPkgTokenSpaceGuid.PcdFdtParameter

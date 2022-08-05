@@ -7,6 +7,7 @@
 
 #include <Guid/MemoryTypeInformation.h>
 #include "UefiPayloadEntry.h"
+#include <libfdt.h>
 
 STATIC UINT32  mTopOfLowerUsableDram = 0;
 
@@ -418,7 +419,8 @@ BuildGenericHob (
 EFI_STATUS
 EFIAPI
 _ModuleEntryPoint (
-  IN UINTN  BootloaderParameter
+		   IN UINTN  BootloaderParameter,
+		   IN UINTN Fdt
   )
 {
   EFI_STATUS                          Status;
@@ -431,6 +433,7 @@ _ModuleEntryPoint (
   UNIVERSAL_PAYLOAD_SERIAL_PORT_INFO  *UniversalSerialPort;
 
   Status = PcdSet64S (PcdBootloaderParameter, BootloaderParameter);
+  Status = PcdSet64S (PcdFdtParameter, Fdt);
   ASSERT_EFI_ERROR (Status);
 
   // Initialize floating point operating environment to be compliant with UEFI spec.
@@ -461,6 +464,8 @@ _ModuleEntryPoint (
   // The library constructors might depend on serial port, so call it after serial port hob
   ProcessLibraryConstructorList ();
   DEBUG ((DEBUG_INFO, "sizeof(UINTN) = 0x%x\n", sizeof (UINTN)));
+  DEBUG ((DEBUG_INFO, "Fdt Arg = 0x%x. fdt_check_header() = %d\n", Fdt, fdt_check_header((void *)Fdt)));
+  DEBUG ((DEBUG_INFO, "fdt_num_mem_rsv() = %d\n",   fdt_num_mem_rsv((void *)Fdt)));
 
   // Build HOB based on information from Bootloader
   Status = BuildHobFromBl ();

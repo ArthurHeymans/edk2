@@ -43,6 +43,7 @@
   MdeModulePkg/MdeModulePkg.dec
   UefiCpuPkg/UefiCpuPkg.dec
   UefiPayloadPkg/UefiPayloadPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
 
 [LibraryClasses]
   BaseMemoryLib
@@ -56,6 +57,7 @@
   PlatformSupportLib
   CpuLib
   UefiCpuLib
+  FdtLib
 
 [Guids]
   gEfiMemoryTypeInformationGuid
@@ -86,6 +88,7 @@
   gUefiPayloadPkgTokenSpaceGuid.PcdPayloadFdMemBase
   gUefiPayloadPkgTokenSpaceGuid.PcdPayloadFdMemSize
   gUefiPayloadPkgTokenSpaceGuid.PcdBootloaderParameter
+  gUefiPayloadPkgTokenSpaceGuid.PcdFdtParameter
   gUefiPayloadPkgTokenSpaceGuid.PcdSystemMemoryUefiRegionSize
   gUefiPayloadPkgTokenSpaceGuid.PcdMemoryTypeEfiACPIMemoryNVS
   gUefiPayloadPkgTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory
@@ -98,4 +101,3 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdImageProtectionPolicy       ## SOMETIMES_CONSUMES
 
   gUefiPayloadPkgTokenSpaceGuid.PcdDispatchModuleAbove4GMemory
-
